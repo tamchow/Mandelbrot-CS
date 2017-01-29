@@ -6,3 +6,4 @@ D:\Programming\Projects\Mandelbrot-CS\obj\Debug\Mandelbrot.Properties.Resources.
 D:\Programming\Projects\Mandelbrot-CS\obj\Debug\Mandelbrot.csproj.GenerateResource.Cache
 D:\Programming\Projects\Mandelbrot-CS\obj\Debug\Mandelbrot.exe
 D:\Programming\Projects\Mandelbrot-CS\obj\Debug\Mandelbrot.pdb
+D:\Programming\Projects\Mandelbrot-CS\bin\Debug\Image.ico
