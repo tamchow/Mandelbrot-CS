@@ -1,18 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Mandelbrot
 {
     internal class Display
     {
-        private Bitmap _bmp;
+        private Image _bmp;
         public static void Main(string[] args)
         {
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
             if (args == null) throw new ArgumentNullException(nameof(args));
 
             var tt = new List<Tuple<double, Color>>
@@ -34,9 +39,18 @@ namespace Mandelbrot
             var palette = Palette.GenerateColorPalette(tt,768);
             var display = new Display
             {
-                _bmp = Program.DrawMandelbrot(new Size(width, height),
-                    new Program.Region(new Complex(-2.5, -1), new Complex(1, 1)), 1000, palette, gradient, 1E10)
+                _bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb)
             };
+            var bmp = (Bitmap) display._bmp;
+            var img = bmp.LockBits(new Rectangle(0, 0,bmp.Width, bmp.Height), ImageLockMode.ReadWrite, display._bmp.PixelFormat);
+            var scan = img.Width;
+            var depth = Image.GetPixelFormatSize(img.PixelFormat) / 8; //bytes per pixel
+            var buffer = new byte[img.Width * img.Height * depth];
+            buffer = Program.DrawMandelbrot(new Size(width, height),
+                new Program.Region(new Complex(-2.5, -1), new Complex(1, 1)),
+                1000, palette, buffer, scan, gradient, 1E10);
+            CopyArrayToBitmap(width, height, depth, buffer, img);
+            bmp.UnlockBits(img);
             var p = new PictureBox {Size = display._bmp.Size};
             var form = new Form
             {
@@ -60,7 +74,9 @@ namespace Mandelbrot
             p.KeyDown += display.Form_KeyDown;
             p.Image = display._bmp;
             form.Controls.Add(p);
-            form.ShowDialog();
+            form.Icon = Icon.ExtractAssociatedIcon("Image.ico");
+            form.Text = $"Mandelbrot Set - Rendered in : {stopWatch.Elapsed}";
+            form.ShowDialog(); 
         }
 
         private void Form_KeyDown(object sender, KeyEventArgs e)
@@ -79,6 +95,17 @@ namespace Mandelbrot
         private void SaveBitmap()
         {
             _bmp.Save("Image.png", ImageFormat.Png);
+        }
+
+        private static void CopyArrayToBitmap(int width, int height, int depth, byte[] buffer, BitmapData img)
+        {
+            var arrRowLength = width * depth;
+            var ptr = img.Scan0;
+            for (var i = 0; i < height; i++)
+            {
+                Marshal.Copy(buffer, i * arrRowLength, ptr, arrRowLength);
+                ptr += img.Stride;
+            }
         }
     }
 
@@ -213,11 +240,35 @@ namespace Mandelbrot
         {
             return (val < min) ? min : ((val > max) ? max : val);
         }
+
+        public static Tuple<double, double> Scale(int width, int height, double rMin, double rMax, double iMin, double iMax)
+        {
+            var rScale = (Math.Abs(rMin) + Math.Abs(rMax)) / width; // Amount to move each pixel in the real numbers
+            var iScale = (Math.Abs(iMin) + Math.Abs(iMax)) / height; // Amount to move each pixel in the imaginary numbers
+            return new Tuple<double, double>(rScale, iScale);
+        }
+        public static Complex PixelToArgandCoordinates(int x, int y, double rScale, double iScale, double rMin, double iMin)
+        {
+            var re = x * rScale + rMin;
+            var im = y * iScale + iMin;
+            return new Complex(re, im);
+        }
+
+        public static Tuple<double, double, double, double> UnpackRegion(Program.Region region)
+        {
+            Complex max = region.Max, min = region.Min;
+            double rMin = min.Real, rMax = max.Real, iMax = max.Imaginary, iMin = min.Imaginary;
+            return new Tuple<double, double, double, double>(rMin, rMax, iMin, iMax);
+        } 
+        public static Program.Region PackBounds(double rMin, double rMax, double iMin, double iMax)
+        {
+            return new Program.Region(new Complex(rMin, iMin), new Complex(rMax, iMax));
+        }
     }
 
     public static class Palette
     {
-        public static List<Color> GenerateColorPalette(List<Tuple<double, Color>> controls, int numColors)
+        public static Color[] GenerateColorPalette(List<Tuple<double, Color>> controls, int numColors)
         {
             var palette = new Color[numColors];
 
@@ -236,7 +287,7 @@ namespace Mandelbrot
                 (int) MathUtils.Clamp(Math.Abs((channelSplines[1]((double) i/palette.Count())*255.0)), 0.0, 255.0),
                 (int) MathUtils.Clamp(Math.Abs((channelSplines[2]((double) i/palette.Count())*255.0)), 0.0, 255.0)
                 )));
-            return palette.ToList();
+            return palette;
         }
 
         public static Color Lerp(Color fromColor, Color toColor, double bias)
@@ -247,6 +298,16 @@ namespace Mandelbrot
                 (int) (fromColor.G*(1.0f - bias) + toColor.G*(bias)),
                 (int) (fromColor.B*(1.0f - bias) + toColor.B*(bias))
                 );
+        }
+
+        private const int Depth = 3;
+
+        public static void SetPixel(byte[] pixels, int x, int y, int scan, Color color)
+        {
+            var offset = Depth*((y*scan) + x);//for 24-bit RGB
+            pixels[offset + 0] = color.B;
+            pixels[offset + 1] = color.G;
+            pixels[offset + 2] = color.R;
         }
 
         public static Bitmap PaletteDebug(int height, int width, List<Color> palette)
@@ -272,42 +333,39 @@ namespace Mandelbrot
         }
     }
 
-    internal static class Program
+    public static class Program
     {
         private static readonly double OneOverLog2 = 1/Math.Log(2);
 
-        public static Bitmap DrawMandelbrot(Size size, Region region, int maxIteration, List<Color> palette,
+        public static byte[] DrawMandelbrot(Size size, Region region, int maxIteration, Color[] palette, byte[] img, int scan,
             Gradient gradient, double bailout)
         {
-            region = NormalizeRegion(region);
-            Complex max = region.Max, min = region.Min;
-            double rMin = min.Real, rMax = max.Real, iMax = max.Imaginary, iMin = min.Imaginary;
-            return DrawMandelbrot(size.Width, size.Height, rMin, rMax, iMin, iMax, maxIteration, palette, gradient,
-                bailout);
+            region = region.NormalizeRegion();
+            var bounds = MathUtils.UnpackRegion(region);
+            return DrawMandelbrot(size.Width, size.Height, bounds.Item1, bounds.Item2, bounds.Item3, bounds.Item4, maxIteration, palette,
+                img, scan, gradient, bailout);
         }
 
-        private static Bitmap DrawMandelbrot(int width, int height, double rMin, double rMax, double iMin, double iMax,
+        private static byte[] DrawMandelbrot(int width, int height, double rMin, double rMax, double iMin, double iMax,
             int maxIteration,
-            IReadOnlyList<Color> palette, Gradient gradient, double bailout)
+            Color[] palette,byte[] img, int scan, Gradient gradient, double bailout)
         {
-            var img = new Bitmap(width, height); // Bitmap to contain the set
-
-            var rScale = (Math.Abs(rMin) + Math.Abs(rMax))/width; // Amount to move each pixel in the real numbers
-            var iScale = (Math.Abs(iMin) + Math.Abs(iMax))/height; // Amount to move each pixel in the imaginary numbers
             var logBailout = Math.Log(bailout);
             var bailoutSquared = bailout*bailout;
+            var scale = MathUtils.Scale(width, height, rMin, rMax, iMin, iMax);
+            double rScale = scale.Item1, iScale = scale.Item2;
             for (var px = 0; px < width; px++)
             {
                 for (var py = 0; py < height; py++)
                 {
-                    var x0 = px*rScale + rMin;
-                    var y0 = py*iScale + iMin;
                     double x = 0.0, xp = 0.0; // x;
                     double y = 0.0, yp = 0.0; // y;
                     var mod = 0.0; // x * x + y * y;
                     var iteration = 0;
                     while (mod < bailoutSquared && iteration < maxIteration)
                     {
+                        var z = MathUtils.PixelToArgandCoordinates(px, py, rScale, iScale, rMin, iMin);
+                        double x0 = z.Real, y0 = z.Imaginary;
                         var xtemp = x*x - y*y + x0;
                         var ytemp = 2*x*y + y0;
                         if ((Math.Abs(xtemp - x) < MathUtils.Tolerance && Math.Abs(ytemp - y) < MathUtils.Tolerance) ||
@@ -326,33 +384,18 @@ namespace Mandelbrot
                     var size = Math.Sqrt(mod);
                     var smoothed = Math.Log(Math.Log(size)*logBailout)*OneOverLog2;
                     var bias = smoothed - (long) smoothed;
-                    var idx = (Math.Sqrt(iteration + 1 - smoothed)*gradient.Scale + gradient.Shift)%palette.Count;
-                    idx = NormalizeIdx(idx, palette.Count);
+                    var idx = (Math.Sqrt(iteration + 1 - smoothed)*gradient.Scale + gradient.Shift)%palette.Length;
+                    idx = NormalizeIdx(idx, palette.Length);
                     if (gradient.Logindex)
                     {
-                        idx = ((Math.Log(idx)/Math.Log(palette.Count))*gradient.Scale)%palette.Count;
-                        idx = NormalizeIdx(idx, palette.Count);
+                        idx = ((Math.Log(idx)/Math.Log(palette.Length))*gradient.Scale)%palette.Length;
+                        idx = NormalizeIdx(idx, palette.Length);
                     }
-                    var color = Palette.Lerp(palette[(int) idx], palette[((int) idx + 1)%palette.Count], bias);
-                    img.SetPixel(px, py, color);
+                    var color = Palette.Lerp(palette[(int) idx], palette[((int) idx + 1)%palette.Length], bias);
+                    Palette.SetPixel(img, px, py, scan, color);
                 }
             }
             return img;
-        }
-
-        private static Region NormalizeRegion(Region region)
-        {
-            return region.OriginAndWidth ? new Region(OriginAndWidthToRegion(region)) : region;
-        }
-
-        private static Tuple<Complex, Complex> OriginAndWidthToRegion(Region region)
-        {
-            var origin = region.Min;
-            var halfX = region.Max.Real/2;
-            var halfY = region.Max.Imaginary/2;
-            return new Tuple<Complex, Complex>(
-                new Complex(origin.Real - halfX, origin.Imaginary - halfY),
-                new Complex(origin.Real + halfX, origin.Imaginary + halfY));
         }
 
         private static double NormalizeIdx(double idx, double max)
@@ -365,6 +408,20 @@ namespace Mandelbrot
         public struct Region
 
         {
+            public Region NormalizeRegion()
+            {
+                return OriginAndWidth ? new Region(OriginAndWidthToRegion()) : this;
+            }
+
+            private Tuple<Complex, Complex> OriginAndWidthToRegion()
+            {
+                var origin = Min;
+                var halfX = Max.Real / 2;
+                var halfY = Max.Imaginary / 2;
+                return new Tuple<Complex, Complex>(
+                    new Complex(origin.Real - halfX, origin.Imaginary - halfY),
+                    new Complex(origin.Real + halfX, origin.Imaginary + halfY));
+            }
             public Region(Tuple<Complex, Complex> val) : this(val.Item1, val.Item2)
             {
             }
