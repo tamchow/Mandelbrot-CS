@@ -1,7 +1,0 @@
-D:\Programming\Projects\Mandelbrot-CS\bin\Release\Mandelbrot.exe.config
-D:\Programming\Projects\Mandelbrot-CS\bin\Release\Mandelbrot.exe
-D:\Programming\Projects\Mandelbrot-CS\bin\Release\Mandelbrot.pdb
-D:\Programming\Projects\Mandelbrot-CS\obj\Release\Mandelbrot.Properties.Resources.resources
-D:\Programming\Projects\Mandelbrot-CS\obj\Release\Mandelbrot.csproj.GenerateResource.Cache
-D:\Programming\Projects\Mandelbrot-CS\obj\Release\Mandelbrot.exe
-D:\Programming\Projects\Mandelbrot-CS\obj\Release\Mandelbrot.pdb
