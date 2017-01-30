@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -11,9 +10,10 @@ using System.Windows.Forms;
 
 namespace Mandelbrot
 {
-    internal class Display
+    internal class Display : IDisposable
     {
         private Image _bmp;
+        [STAThread]
         public static void Main(string[] args)
         {
             var stopWatch = new Stopwatch();
@@ -107,6 +107,18 @@ namespace Mandelbrot
                 ptr += img.Stride;
             }
         }
+
+        #region Implementation of IDisposable
+
+        /// <summary>
+        /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+        /// </summary>
+        public void Dispose()
+        {
+            ((IDisposable) _bmp).Dispose();
+        }
+
+        #endregion
     }
 
     public static class MathUtils

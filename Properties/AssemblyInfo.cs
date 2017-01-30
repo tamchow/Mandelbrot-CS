@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCompany("Elliott Media SDKs")]
 [assembly: AssemblyProduct("Mandelbrot Generator")]
 [assembly: AssemblyCopyright("Copyright ©  2017")]
-[assembly: AssemblyTrademark("Tamoghna Chowdhury, Cameron Elliot, James Parsons")]
+[assembly: AssemblyTrademark("Tamoghna Chowdhury, Cameron Elliot")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
