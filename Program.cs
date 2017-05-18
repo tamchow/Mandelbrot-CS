@@ -50,7 +50,7 @@ namespace Mandelbrot
                 new Tuple<double, Color>(0.8575, Color.FromArgb(255, 0, 2, 0)),
                 new Tuple<double, Color>(1.0, Color.FromArgb(255, 0, 7, 100))
             };
-            int width = 1050, height = 600;
+            int width = 1840, height = 1000;
             if (args.Length > 0)
             {
                 width = int.Parse(args[0]);
