@@ -2,8 +2,8 @@ D:\Programming\Projects\Mandelbrot-CS\bin\x64\Release\Image.ico
 D:\Programming\Projects\Mandelbrot-CS\bin\x64\Release\Mandelbrot.exe.config
 D:\Programming\Projects\Mandelbrot-CS\bin\x64\Release\Mandelbrot.exe
 D:\Programming\Projects\Mandelbrot-CS\bin\x64\Release\Mandelbrot.pdb
-D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.csprojResolveAssemblyReference.cache
 D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.Properties.Resources.resources
 D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.csproj.GenerateResource.Cache
 D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.exe
 D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.pdb
+D:\Programming\Projects\Mandelbrot-CS\obj\x64\Release\Mandelbrot.csprojResolveAssemblyReference.cache
