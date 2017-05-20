@@ -44,24 +44,30 @@ namespace Mandelbrot
             };
             int width = 1840, height = 1000, numColors = 768;
             var scaleDownFactor = 3.0;
+            var root = 2.0;
             if (args.Length > 0)
             {
-                width = int.Parse(args[0]);
-                height = int.Parse(args[1]);
+                int.TryParse(args[0], out width);
+                int.TryParse(args[1], out height);
                 if (args.Length > 2)
                 {
-                    numColors = int.Parse(args[2]);
+                    int.TryParse(args[2], out numColors);
                     scaleDownFactor = numColors / 256.0;
+                }
+                if (args.Length > 3)
+                {
+                    double.TryParse(args[3], out root);
                 }
             }
             var palette = Palette.GenerateColorPalette(initialPalette, numColors);
 
-            // Note: For Logarithmic mapping, `gradient.Scale` of palette.Length - 1 works well,
-            // while for root or linear mapping, `gradient.Scale` of approx. palette,Length / 3 works well.
+            // Note: For Logarithmic mapping, `gradient.PaletteScale` of palette.Length - 1 works well,
+            // while for root or linear mapping, `gradient.PaletteScale` of approx. palette,Length / 3 works well.
             var gradient = new Gradient(
                 Palette.RecommendedGradientScale(numColors, false, scaleDownFactor), 0,
                 logIndex: false, rootIndex: true,
-                root: 2, minIterations: 0);
+                root: root, minIterations: 0,
+                indexScale: 10, weight: 1.0);
             var display = new Display
             {
                 _bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb)
@@ -71,7 +77,7 @@ namespace Mandelbrot
             var depth = Image.GetPixelFormatSize(img.PixelFormat) / 8; //bytes per pixel
             var region = new Region(new Complex(0.16125, 0.637), new Complex(0.001, 0.001), originAndWidth: true);
             //var region = MathUtilities.PackBounds(-2.5, 1, -1, 1);
-            var buffer = 
+            var buffer =
                 Mandelbrot.DrawMandelbrot(new Size(2, Environment.ProcessorCount),
                 new Size(width, height),
                 region,

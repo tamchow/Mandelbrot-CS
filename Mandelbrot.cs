@@ -67,15 +67,17 @@ namespace Mandelbrot
             #region GeneralConfigurationForAllThreads
             if (maxIterations < 1) throw new ArgumentException($"Max iterations must be >= 1, is {maxIterations}");
             var colors = palette.Length;
-            var root = gradient.Exponent;
-            var rootMinIterations = gradient.RootIndex ? Math.Pow(gradient.MinIterations, root) : 0.0;
-            var logBase = gradient.LogIndex ? Math.Log((double)maxIterations / gradient.MinIterations) : 0.0;
+            var root = gradient.Exponent;                                             
+            double indexScale = gradient.IndexScale, indexWeight = gradient.Weight;
+            double scaledMinIterations = indexScale * gradient.MinIterations,
+                scaledMaxIterations = indexScale * maxIterations;
+            var rootMinIterations = gradient.RootIndex ? Math.Pow(scaledMinIterations, root) : 0.0;
+            var logBase = gradient.LogIndex ? Math.Log(scaledMaxIterations / scaledMinIterations) : 0.0;
             var logMinIterations = gradient.LogIndex ? Math.Log(gradient.MinIterations, logBase) : 0.0;
             var logBailout = Math.Log(bailout);
             var halfOverLogBailout = gradient.UseAlternateSmoothingConstant ? 0.5 * logBailout : 0.5 / logBailout;
             var bailoutSquared = bailout * bailout;
             var useSqrt = gradient.RootIndex && Math.Abs(gradient.Root - 2) < Epsilon;
-            double indexScale = gradient.FractionScale, indexWeight = gradient.Weight;
             #endregion
 
             Parallel.For(0, xThreads, ix =>
