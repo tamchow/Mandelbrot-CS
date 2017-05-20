@@ -11,10 +11,10 @@ namespace Mandelbrot
         /// <returns></returns>
         public bool Equals(Gradient other)
         {
-            return Math.Abs(Scale - other.Scale) < MathUtilities.Tolerance &&
+            return Math.Abs(PaletteScale - other.PaletteScale) < MathUtilities.Tolerance &&
                    Math.Abs(Shift - other.Shift) < MathUtilities.Tolerance &&
                    Math.Abs(Root - other.Root) < MathUtilities.Tolerance &&
-                   Math.Abs(FractionScale - other.FractionScale) < MathUtilities.Tolerance &&
+                   Math.Abs(IndexScale - other.IndexScale) < MathUtilities.Tolerance &&
                    Math.Abs(Weight - other.Weight) < MathUtilities.Tolerance &&
                    MinIterations == other.MinIterations &&
                    LogIndex == other.LogIndex &&
@@ -36,10 +36,10 @@ namespace Mandelbrot
         /// <returns></returns>
         public override int GetHashCode()
         {
-            var hashCode = Scale.GetHashCode();
+            var hashCode = PaletteScale.GetHashCode();
             hashCode = (hashCode * 397) ^ Shift.GetHashCode();
             hashCode = (hashCode * 397) ^ Root.GetHashCode();
-            hashCode = (hashCode * 397) ^ FractionScale.GetHashCode();
+            hashCode = (hashCode * 397) ^ IndexScale.GetHashCode();
             hashCode = (hashCode * 397) ^ Weight.GetHashCode();
             hashCode = (hashCode * 397) ^ MinIterations.GetHashCode();
             hashCode = (hashCode * 397) ^ LogIndex.GetHashCode();
@@ -89,39 +89,39 @@ namespace Mandelbrot
         /// </summary>
         /// <returns></returns>
         public override string ToString() =>
-            $"Scale: {Scale}, Shift: {Shift}," +
+            $"PaletteScale: {PaletteScale}, Shift: {Shift}," +
             $" Log_Index: {LogIndex}, Root_Index: {RootIndex}," +
             $" Use_Alternate_Smoothing_Constant: {UseAlternateSmoothingConstant}," +
             $" Root: {Root}, MinIterations = {MinIterations},"+
-            $" Fraction_Scale: {FractionScale}, Weight = {Weight}";
+            $" Fraction_Scale: {IndexScale}, Weight = {Weight}";
 
         /// <summary>
         /// </summary>
-        /// <param name="scale"></param>
+        /// <param name="paletteScale"></param>
         /// <param name="shift"></param>
         /// <param name="logIndex"></param>
         /// <param name="rootIndex"></param>
         /// <param name="useAlternateSmoothingConstant"></param>
         /// <param name="root"></param>
         /// <param name="minIterations"></param>
-        /// <param name="fractionScale"></param>
+        /// <param name="indexScale"></param>
         /// <param name="weight"></param>
-        public Gradient(double scale, double shift,
+        public Gradient(double paletteScale, double shift,
             bool logIndex = false, bool rootIndex = true, bool useAlternateSmoothingConstant = false,
             double root = 2, int minIterations = 1,
-            double fractionScale = 1.0, double weight = 1.0)
+            double indexScale = 1.0, double weight = 1.0)
         {
-            Scale = scale;
+            PaletteScale = paletteScale;
             Shift = shift;
             LogIndex = logIndex;
-            RootIndex = rootIndex;
+            RootIndex = !(Math.Abs(root - 1.0) < MathUtilities.Tolerance) && rootIndex;
             UseAlternateSmoothingConstant = useAlternateSmoothingConstant;
             Root = root;
             Exponent = 1 / root;
             if (minIterations < 0 && !logIndex) throw new ArgumentException($"Min. iterations cutoff must be >= 0, is {minIterations}");
             if (minIterations < 1 && logIndex) throw new ArgumentException($"Min. iterations cutoff must be >= 1, is {minIterations}");
             MinIterations = minIterations;
-            FractionScale = fractionScale;
+            IndexScale = indexScale;
             Weight = weight;
         }
 
@@ -131,21 +131,21 @@ namespace Mandelbrot
         {
             public bool Equals(Gradient x, Gradient y)
             {
-                return x.Scale.Equals(y.Scale) && x.Shift.Equals(y.Shift) && x.LogIndex == y.LogIndex && x.RootIndex == y.RootIndex && x.UseAlternateSmoothingConstant == y.UseAlternateSmoothingConstant && x.Root.Equals(y.Root) && x.MinIterations == y.MinIterations && x.FractionScale.Equals(y.FractionScale) && x.Weight.Equals(y.Weight);
+                return x.PaletteScale.Equals(y.PaletteScale) && x.Shift.Equals(y.Shift) && x.LogIndex == y.LogIndex && x.RootIndex == y.RootIndex && x.UseAlternateSmoothingConstant == y.UseAlternateSmoothingConstant && x.Root.Equals(y.Root) && x.MinIterations == y.MinIterations && x.IndexScale.Equals(y.IndexScale) && x.Weight.Equals(y.Weight);
             }
 
             public int GetHashCode(Gradient obj)
             {
                 unchecked
                 {
-                    var hashCode = obj.Scale.GetHashCode();
+                    var hashCode = obj.PaletteScale.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.Shift.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.LogIndex.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.RootIndex.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.UseAlternateSmoothingConstant.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.Root.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.MinIterations;
-                    hashCode = (hashCode * 397) ^ obj.FractionScale.GetHashCode();
+                    hashCode = (hashCode * 397) ^ obj.IndexScale.GetHashCode();
                     hashCode = (hashCode * 397) ^ obj.Weight.GetHashCode();
                     return hashCode;
                 }
@@ -171,7 +171,7 @@ namespace Mandelbrot
 
         /// <summary>
         /// </summary>
-        public double Scale { get; }
+        public double PaletteScale { get; }
 
         /// <summary>
         /// </summary>
@@ -199,7 +199,7 @@ namespace Mandelbrot
 
         /// <summary>
         /// </summary>
-        public double FractionScale { get; }
+        public double IndexScale { get; }
 
         /// <summary>
         /// </summary>

@@ -42,7 +42,7 @@ namespace Mandelbrot
         {
             index = index < 0 ? maxIndex + index % maxIndex :
                 (double.IsNaN(index) ? 0 : (double.IsInfinity(index) ? maxIndex : index));
-            return (int)(index * gradient.Scale + gradient.Shift) % maxIndex;
+            return (int)(index * gradient.PaletteScale + gradient.Shift) % maxIndex;
         }
 
         /// <summary>
