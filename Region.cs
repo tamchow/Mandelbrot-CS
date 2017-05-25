@@ -11,27 +11,21 @@ namespace Mandelbrot
         /// <returns></returns>
         public Region NormalizeRegion()
         {
-            return OriginAndWidth ? new Region(OriginAndWidthToRegion()) : this;
+            return OriginAndWidth ? OriginAndWidthToRegion() : this;
         }
 
         /// <summary>
         /// </summary>
         /// <returns></returns>
-        private Tuple<Complex, Complex> OriginAndWidthToRegion()
+        private Region OriginAndWidthToRegion()
         {
             var origin = Min;
             var halfX = Max.Real / 2;
             var halfY = Max.Imaginary / 2;
-            return new Tuple<Complex, Complex>(
-                new Complex(origin.Real - halfX, origin.Imaginary - halfY),
-                new Complex(origin.Real + halfX, origin.Imaginary + halfY));
-        }
-
-        /// <summary>
-        /// </summary>
-        /// <param name="val"></param>
-        private Region(Tuple<Complex, Complex> val) : this(val.Item1, val.Item2)
-        {
+            return new Region(
+                min: new Complex(origin.Real - halfX, origin.Imaginary - halfY),
+                max: new Complex(origin.Real + halfX, origin.Imaginary + halfY),
+                originAndWidth: false);
         }
 
         /// <summary>

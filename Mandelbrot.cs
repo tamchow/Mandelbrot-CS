@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
+using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mandelbrot
 {
     public static class Mandelbrot
     {
-
         /// <summary>
         /// </summary>
         private static readonly double OneOverLog2 = 1 / Math.Log(2);
@@ -58,50 +60,91 @@ namespace Mandelbrot
             Gradient gradient, double bailout)
         {
             region = region.NormalizeRegion();
-            int startXAll = Math.Min(start.Width, end.Width), endXAll = Math.Max(start.Width, end.Width);
-            int startYAll = Math.Min(start.Height, end.Height), endYAll = Math.Max(start.Height, end.Height);
-            int widthAll = endXAll - startXAll, heightAll = endYAll - startYAll;
-            var image = new byte[heightAll * widthAll * BitDepthFor24BppRgb];
+            var cartesianRegion = new Region(
+                min: new Complex(region.Min.Real, -region.Min.Imaginary),
+                max: new Complex(region.Max.Real, -region.Max.Imaginary));
+            int globalStartX = start.Width, globalEndX = end.Width;
+            int globalStartY = start.Height, globalEndY = end.Height;
+
+            int globalWidth = globalEndX - globalStartX,
+                globalHeight = globalEndY - globalStartY;
+
+
+            double globalRealStart = region.Min.Real,
+                globalImaginaryStart = region.Min.Imaginary;
+
+            var image = new byte[globalHeight * globalWidth * BitDepthFor24BppRgb];
+
             int xThreads = threads.Width, yThreads = threads.Height;
 
-            #region GeneralConfigurationForAllThreads
+            var globalScale = MathUtilities.Scale(
+                globalWidth, globalHeight,
+                region.Min.Real, region.Max.Real,
+                region.Min.Imaginary, region.Max.Imaginary);
+
+            #region General Configuration For All Threads
             if (maxIterations < 1) throw new ArgumentException($"Max iterations must be >= 1, is {maxIterations}");
             var colors = palette.Length;
-            var root = gradient.Exponent;                                             
+            var root = gradient.Exponent;
             double indexScale = gradient.IndexScale, indexWeight = gradient.Weight;
             double scaledMinIterations = indexScale * gradient.MinIterations,
                 scaledMaxIterations = indexScale * maxIterations;
             var rootMinIterations = gradient.RootIndex ? Math.Pow(scaledMinIterations, root) : 0.0;
             var logBase = gradient.LogIndex ? Math.Log(scaledMaxIterations / scaledMinIterations) : 0.0;
-            var logMinIterations = gradient.LogIndex ? Math.Log(gradient.MinIterations, logBase) : 0.0;
-            var logBailout = Math.Log(bailout);
-            var halfOverLogBailout = gradient.UseAlternateSmoothingConstant ? 0.5 * logBailout : 0.5 / logBailout;
+            var logMinIterations = gradient.LogIndex ? Math.Log(scaledMinIterations, logBase) : 0.0;
+            var logPaletteBailout = Math.Log(gradient.PaletteBailout);
+            var halfOverLogPaletteBailout = 0.5 / logPaletteBailout;
             var bailoutSquared = bailout * bailout;
             var useSqrt = gradient.RootIndex && Math.Abs(gradient.Root - 2) < Epsilon;
+            var maxIterationColor = gradient.MaxIterationColor;
             #endregion
 
-            Parallel.For(0, xThreads, ix =>
-              Parallel.For(0, yThreads, iy =>
+            var tasks = new Thread[xThreads * yThreads];
+            for (var iy = 0; iy < yThreads; ++iy)
+            {
+                for (var ix = 0; ix < xThreads; ++ix)
                 {
-                    var area = MathUtilities.StartEndCoordinates(startXAll, endXAll, startYAll, endYAll,
+                    var localRegion = MathUtilities.StartEndCoordinates(
+                        globalStartX, globalEndX, globalStartY, globalEndY,
                         xThreads, ix, yThreads, iy);
-                    int startX = area.Item1, startY = area.Item3, endX = area.Item2, endY = area.Item4;
-                    int width = endX - startX, height = endY - startY;
-                    var scale = MathUtilities.Scale(widthAll, heightAll, region.Min.Real, region.Max.Real,
-                        region.Min.Imaginary, region.Max.Imaginary);
-                    var min = MathUtilities.PixelToArgandCoordinates(startX, startY, scale.Item1, scale.Item2,
-                        region.Min.Real, region.Min.Imaginary);
 
-                    double rMin = min.Real, iMin = min.Imaginary;
+                    int localStartX = localRegion.Item1,
+                        localStartY = localRegion.Item3,
+                        localEndX = localRegion.Item2,
+                        localEndY = localRegion.Item4;
+
+                    int localWidth = localEndX - localStartX,
+                        localHeight = localEndY - localStartY;
+
+                    var localStart =
+                        MathUtilities.PixelToArgandCoordinates(
+                            localStartX, localStartY,
+                            globalScale.Real, globalScale.Imaginary,
+                            globalRealStart, globalImaginaryStart);
+
+
+                    var taskIndex = iy * xThreads + ix;
+                    tasks[taskIndex] =
+                        new Thread(() =>
                     DrawMandelbrot(
-                        startX, startY, width, height,
-                        rMin, iMin, maxIterations,
-                        scale.Item1, scale.Item2, widthAll,
+                        localStartX, localStartY,
+                        localWidth, localHeight,
+                        localStart.Real, localStart.Imaginary, maxIterations,
+                        globalScale.Real, globalScale.Imaginary, globalWidth,
                         palette, gradient, image,
-                        colors, bailoutSquared, halfOverLogBailout,
+                        colors, bailoutSquared, halfOverLogPaletteBailout,
                         logBase, logMinIterations, root, rootMinIterations,
-                        indexScale, indexWeight, useSqrt);                             
-                }));
+                        indexScale, indexWeight, useSqrt, maxIterationColor));
+                    tasks[taskIndex].Start();
+                }
+            }
+            // Wait for completion
+            foreach (var task in tasks)
+            {
+
+                task.Join();
+            }
+
             return image;
         }
 
@@ -111,11 +154,11 @@ namespace Mandelbrot
         /// <param name="startY"></param>
         /// <param name="width"></param>
         /// <param name="height"></param>
-        /// <param name="rMin"></param>
-        /// <param name="iMin"></param>
+        /// <param name="realStart"></param>
+        /// <param name="imaginaryStart"></param>
         /// <param name="maxIterations"></param>
-        /// <param name="rScale"></param>
-        /// <param name="iScale"></param>
+        /// <param name="realScale"></param>
+        /// <param name="imaginaryScale"></param>
         /// <param name="scan"></param>
         /// <param name="palette"></param>
         /// <param name="gradient"></param>
@@ -130,15 +173,19 @@ namespace Mandelbrot
         /// <param name="indexScale"></param>
         /// <param name="indexWeight"></param>
         /// <param name="useSqrt"></param>
-        private static void DrawMandelbrot(int startX, int startY, int width, int height,
-            double rMin,double iMin,
-            int maxIterations, double rScale, double iScale, int scan,
-            Color[] palette, Gradient gradient, byte[] image,
-            int colors, double bailoutSquared, double halfOverLogBailout, 
+        /// <param name="maxIterationColor"></param>
+        private static void DrawMandelbrot(
+            int startX, int startY,
+            int width, int height,
+            double realStart, double imaginaryStart,
+            int maxIterations,
+            double realScale, double imaginaryScale,
+            int scan, Color[] palette, Gradient gradient, byte[] image, int colors,
+            double bailoutSquared, double halfOverLogBailout,
             double logBase, double logMinIterations,
             double root, double rootMinIterations,
             double indexScale, double indexWeight,
-            bool useSqrt)
+            bool useSqrt, Color maxIterationColor)
         {
             for (var py = 0; py < height; ++py)
             {
@@ -146,11 +193,11 @@ namespace Mandelbrot
                 {
                     double x = 0.0, xp = 0.0; // x;
                     double y = 0.0, yp = 0.0; // y;
-                    var mod = 0.0; // x * x + y * y;
-                    var x0 = px * rScale + rMin;
-                    var y0 = py * iScale + iMin;
-                    var iteration = 0;
-                    while (mod < bailoutSquared && iteration < maxIterations)
+                    var modulusSquared = 0.0; // x * x + y * y;
+                    var x0 = px * realScale + realStart;
+                    var y0 = py * imaginaryScale + imaginaryStart;
+                    var iterations = 0;
+                    while (modulusSquared < bailoutSquared && iterations < maxIterations)
                     {
                         var xtemp = x * x - y * y + x0;
                         var ytemp = 2 * x * y + y0;
@@ -158,21 +205,21 @@ namespace Mandelbrot
                             dy = ytemp - y,
                             dxp = xtemp - xp,
                             dyp = ytemp - yp;
-                        if ((dx*dx < Epsilon && dy*dy < Epsilon)
-                            ||(dxp*dxp < Epsilon && dyp*dyp < Epsilon))
+                        if ((dx * dx < Epsilon && dy * dy < Epsilon) ||
+                            (dxp * dxp < Epsilon && dyp * dyp < Epsilon))
                         {
-                            iteration = maxIterations;
+                            iterations = maxIterations;
                             break;
                         }
                         xp = x;
                         yp = y;
                         x = xtemp;
                         y = ytemp;
-                        mod = x * x + y * y;
-                        ++iteration;
+                        modulusSquared = x * x + y * y;
+                        ++iterations;
                     }
-                    var smoothed = Math.Log(Math.Log(mod) * halfOverLogBailout) * OneOverLog2;
-                    var index = indexScale * (iteration + 1 - indexWeight * smoothed);
+                    var smoothed = Math.Log(Math.Log(modulusSquared) * halfOverLogBailout) * OneOverLog2;
+                    var index = indexScale * (iterations + 1 - indexWeight * smoothed);
                     if (useSqrt)
                     {
                         index = Math.Sqrt(index) - rootMinIterations;
@@ -184,21 +231,31 @@ namespace Mandelbrot
                     if (gradient.LogIndex)
                     {
                         index = Math.Log(index, logBase) - logMinIterations;
-
                     }
-                    var actualIndex = MathUtilities.NormalizeIdx(index, colors, gradient);
-                    Palette.Lerp(
-                        palette[actualIndex], 
-                        palette[(actualIndex + 1) % colors], 
-                        smoothed - (long)smoothed,
-                        out byte red, out byte green, out byte blue);
-                    var offset = BitDepthFor24BppRgb * ((startY + py) * scan + startX + px);
+                    index = MathUtilities.NormalizeIndex(index, colors);
+                    var actualIndex = MathUtilities.PreparePaletteIndex(index, colors, gradient);
+
+                    byte red, green, blue;
+                    if (iterations >= maxIterations)
+                    {
+                        red = maxIterationColor.R;
+                        green = maxIterationColor.G;
+                        blue = maxIterationColor.B;
+                    }
+                    else
+                    {
+                        Palette.Lerp(
+                            palette[actualIndex],
+                            palette[(actualIndex + 1) % colors],
+                            index - (long)index,
+                            out red, out green, out blue);
+                    }
+                    var offset = BitDepthFor24BppRgb * ((startY + py) * scan + (startX + px));
                     image[offset] = blue;
                     image[offset + 1] = green;
                     image[offset + 2] = red;
                 }
             }
         }
-
     }
 }

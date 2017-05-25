@@ -25,8 +25,8 @@ namespace Mandelbrot
             var area = UnpackRegion(region);
             double rMin = area.Item1, rMax = area.Item2, iMin = area.Item3, iMax = area.Item4;
             var scale = Scale(width, height, rMin, rMax, iMin, iMax);
-            var startPixelCoordinates = ArgandToPixelCoordinates(region.Min, scale.Item1, scale.Item2, rMin, iMin);
-            var endPixelCoordinates = ArgandToPixelCoordinates(region.Max, scale.Item1, scale.Item2, rMin, iMin);
+            var startPixelCoordinates = ArgandToPixelCoordinates(region.Min, scale.Real, scale.Imaginary, rMin, iMin);
+            var endPixelCoordinates = ArgandToPixelCoordinates(region.Max, scale.Real, scale.Imaginary, rMin, iMin);
             return new Tuple<int, int, int, int>(
                 startPixelCoordinates.Item1, endPixelCoordinates.Item1,
                 startPixelCoordinates.Item2, endPixelCoordinates.Item2);
@@ -36,15 +36,22 @@ namespace Mandelbrot
         /// </summary>
         /// <param name="index"></param>
         /// <param name="maxIndex"></param>
-        /// <param name="gradient"></param>
         /// <returns></returns>
-        public static int NormalizeIdx(double index, int maxIndex, Gradient gradient)
+        public static double NormalizeIndex(double index, int maxIndex)
         {
-            index = index < 0 ? maxIndex + index % maxIndex :
+            return index < 0 ? maxIndex + index % maxIndex :
                 (double.IsNaN(index) ? 0 : (double.IsInfinity(index) ? maxIndex : index));
-            return (int)(index * gradient.PaletteScale + gradient.Shift) % maxIndex;
         }
 
+        public static double Clamp(double val, double min = 0.0, double max = 1.0)
+        {
+            return val < min ? min : (val > max ? max : val);
+        }
+
+        public static int PreparePaletteIndex(double index, int maxIndex, Gradient gradient)
+        {
+            return (int)(index * gradient.PaletteScale + gradient.Shift) % maxIndex;
+        }
         /// <summary>
         /// Generates the coordinates bounding the rectangle a thread should
         /// render.
@@ -271,24 +278,30 @@ namespace Mandelbrot
         /// <param name="iMin"></param>
         /// <param name="iMax"></param>
         /// <returns></returns>
-        public static Tuple<double, double> Scale(int width, int height, double rMin, double rMax, double iMin, double iMax)
+        public static Complex Scale(
+            int width, int height,
+            double rMin, double rMax,
+            double iMin, double iMax)
         {
             var rScale = (Math.Max(rMin, rMax) - Math.Min(rMin, rMax)) / width;  // Amount to move each pixel in the real numbers
             var iScale = (Math.Max(iMin, iMax) - Math.Min(iMin, iMax)) / height; // Amount to move each pixel in the imaginary numbers
-            return new Tuple<double, double>(rScale, iScale);
+            return new Complex(rScale, iScale);
         }
 
         /// <summary>
         /// </summary>
         /// <param name="x"></param>
         /// <param name="y"></param>
-        /// <param name="rScale"></param>
-        /// <param name="iScale"></param>
-        /// <param name="rMin"></param>
-        /// <param name="iMin"></param>
+        /// <param name="realScale"></param>
+        /// <param name="imaginaryScale"></param>
+        /// <param name="realStart"></param>
+        /// <param name="imaginaryStart"></param>
         /// <returns></returns>
-        public static Complex PixelToArgandCoordinates(int x, int y, double rScale, double iScale, double rMin, double iMin) =>
-            new Complex(x * rScale + rMin, y * iScale + iMin);
+        public static Complex PixelToArgandCoordinates(
+            int x, int y,
+            double realScale, double imaginaryScale,
+            double realStart, double imaginaryStart) =>
+            new Complex(x * realScale + realStart, y * imaginaryScale + imaginaryStart);
 
         /// <summary>
         /// </summary>

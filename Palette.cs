@@ -1,10 +1,21 @@
 ﻿using System;
 using System.Drawing;
+using System.Text;
 
 namespace Mandelbrot
 {
     public static class Palette
     {
+
+        public static string PaletteToString(Color[] palette)
+        {
+            var accumulator = new StringBuilder(palette.Length * 12); // 3 digits for 3 color components, separated by ',', terminated by '\n'
+            foreach(var color in palette)
+            {
+                accumulator.Append(color.R).Append(',').Append(color.G).Append(',').Append(color.B).Append('\n');
+            }
+            return accumulator.ToString();
+        }
         /// <summary>
         /// </summary>
         /// <param name="numColors"></param>
@@ -12,7 +23,7 @@ namespace Mandelbrot
         /// <param name="scaleDownFactor"></param>
         /// <returns></returns>
         public static double RecommendedGradientScale(int numColors, bool logIndex, double scaleDownFactor) =>
-            logIndex ? numColors - 1 : numColors / scaleDownFactor;
+            logIndex ? numColors - 1 : numColors * MathUtilities.Clamp(scaleDownFactor);
 
         /// <summary>
         /// </summary>
@@ -60,6 +71,36 @@ namespace Mandelbrot
             return palette;
         }
 
+       #region Routines for ensuring the highest iteration counts map to a specific color
+        private static double EuclideanDistance(Color a, Color b)
+        {
+            double dR = a.R - b.R, dG = a.G - b.G, dB = a.B - b.B;
+            return Math.Sqrt(dR * dR + dG * dG + dB * dB);
+        }
+        public static double FindPaletteColorLocation(Color[] palette, Color color)
+        {
+            var locationOfPaletteColorClosestToBlack = 0.0;
+            var distanceOfPaletteColorClosestToBlack = EuclideanDistance(palette[0], color);
+            for (var i = 1; i < palette.Length; ++i)
+            {
+                var distanceOfCurrentColorFromBlack = EuclideanDistance(palette[i], color);
+                if (Math.Abs(distanceOfCurrentColorFromBlack) < MathUtilities.Tolerance)
+                {
+                    break;
+                }
+                if (distanceOfCurrentColorFromBlack < distanceOfPaletteColorClosestToBlack)
+                {
+                    locationOfPaletteColorClosestToBlack = i;
+                    distanceOfPaletteColorClosestToBlack = distanceOfCurrentColorFromBlack;
+                }
+            }
+            return locationOfPaletteColorClosestToBlack / palette.Length;
+        }
+        public static double CalculateScaleDownFactorForLinearMapping(double paletteMaxIterationColorLocation)
+        {
+            return 1 - paletteMaxIterationColorLocation + MathUtilities.Tolerance;
+        }
+        #endregion
         /// <summary>
         /// </summary>
         /// <param name="from"></param>

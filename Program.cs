@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -30,44 +31,81 @@ namespace Mandelbrot
         public static void Main(string[] args)
         {
             var stopWatch = new Stopwatch();
-            stopWatch.Start();
             if (args == null) throw new ArgumentNullException(nameof(args));
 
+            /*
+             * Notes for making palettes -
+             * We generally want the interior of the set to map to black
+             */
             var initialPalette = new[]
             {
                 new Tuple<double, Color>(0.0, Color.FromArgb(255, 0, 7, 100)),
                 new Tuple<double, Color>(0.16, Color.FromArgb(255, 32, 107, 203)),
                 new Tuple<double, Color>(0.42, Color.FromArgb(255, 237, 255, 255)),
                 new Tuple<double, Color>(0.6425, Color.FromArgb(255, 255, 170, 0)),
-                new Tuple<double, Color>(0.8575, Color.FromArgb(255, 0, 2, 0)),
+                new Tuple<double, Color>(0.8575,  Color.FromArgb(255, 0, 2, 0)),
                 new Tuple<double, Color>(1.0, Color.FromArgb(255, 0, 7, 100))
             };
-            int width = 1840, height = 1000, numColors = 768;
-            var scaleDownFactor = 3.0;
-            var root = 2.0;
+            int width = 3840, height = 2160, numColors = 768, maxIterations = 256;
+            var palette = Palette.GenerateColorPalette(initialPalette, numColors);
+            var palette2 = new[]{
+                Color.FromArgb(66, 30, 15),
+                Color.FromArgb(25, 37, 26),
+                Color.FromArgb(9, 1, 47),
+                Color.FromArgb(4, 4, 73),
+                Color.FromArgb(0, 7, 100),
+                Color.FromArgb(12, 44, 138),
+                Color.FromArgb(24, 82, 177),
+                Color.FromArgb(57, 125, 209),
+                Color.FromArgb(134, 181, 229),
+                Color.FromArgb(211, 236, 248),
+                Color.FromArgb(241, 233, 191),
+                Color.FromArgb(248, 201, 95),
+                Color.FromArgb(255, 170, 0),
+                Color.FromArgb(204, 128, 0),
+                Color.FromArgb(153, 87, 0),
+                Color.FromArgb(106, 52, 3),
+                Color.FromArgb(0, 0, 0)
+            };
+            /*
+             * Note that the way scaleDownFactor is calculated will ensure that 
+             * `gradient.PaletteScale` is such that the highest ieration counts will map to Black.
+             * 
+             * To change the frequency of colors in the output,
+             * change `gradient.IndexScale` in proportion to the frquency, as necessary.
+             */
+            var scaleDownFactor = Palette.CalculateScaleDownFactorForLinearMapping(Palette.FindPaletteColorLocation(palette, Color.Black));
+            var root = 4.0;
             if (args.Length > 0)
             {
                 int.TryParse(args[0], out width);
                 int.TryParse(args[1], out height);
                 if (args.Length > 2)
                 {
-                    int.TryParse(args[2], out numColors);
-                    scaleDownFactor = numColors / 256.0;
+                    int.TryParse(args[2], out maxIterations);
                 }
                 if (args.Length > 3)
                 {
-                    double.TryParse(args[3], out root);
+                   int.TryParse(args[3], out numColors);
                 }
             }
-            var palette = Palette.GenerateColorPalette(initialPalette, numColors);
 
-            // Note: For Logarithmic mapping, `gradient.PaletteScale` of palette.Length - 1 works well,
-            // while for root or linear mapping, `gradient.PaletteScale` of approx. palette,Length / 3 works well.
+            var maxIterationColor = Color.Black;
             var gradient = new Gradient(
-                Palette.RecommendedGradientScale(numColors, false, scaleDownFactor), 0,
-                logIndex: false, rootIndex: true,
-                root: root, minIterations: 0,
-                indexScale: 10, weight: 1.0);
+                maxIterationColor,
+                Palette.RecommendedGradientScale(palette.Length, true, scaleDownFactor),
+                0, 1E10,
+                logIndex: true, rootIndex: false,
+                root: root, minIterations: 1,
+                indexScale: 1,  weight: 1.0);
+            using (var paletteOutput = new StreamWriter("./palette.txt"))
+            {
+                var totalPalette = new Color[palette.Length + 1];
+                totalPalette[0] = maxIterationColor;
+                palette.CopyTo(totalPalette, 1);
+                paletteOutput.WriteLine(numColors);
+                paletteOutput.Write(Palette.PaletteToString(totalPalette));
+            }
             var display = new Display
             {
                 _bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb)
@@ -75,16 +113,19 @@ namespace Mandelbrot
             var bmp = (Bitmap)display._bmp;
             var img = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, display._bmp.PixelFormat);
             var depth = Image.GetPixelFormatSize(img.PixelFormat) / 8; //bytes per pixel
-            var region = new Region(new Complex(0.16125, 0.637), new Complex(0.001, 0.001), originAndWidth: true);
-            //var region = MathUtilities.PackBounds(-2.5, 1, -1, 1);
+            //var region = new Region(new Complex(-0.1593247826659642, 1.0342115878556377), new Complex(0.0325, 0.0325), originAndWidth: true);
+            //var region = new Region(new Complex(0.27969303810093984, 0.00838423653868096), new Complex(3.27681E-12, 3.27681E-12), originAndWidth: true);
+            var region = new Region(new Complex(-2.5, -1), new Complex(1, 1), originAndWidth: false);
+            stopWatch.Start();
             var buffer =
-                Mandelbrot.DrawMandelbrot(new Size(2, Environment.ProcessorCount),
+                Mandelbrot.DrawMandelbrot(
+                    new Size(1, 1),
                 new Size(width, height),
                 region,
-                1000, palette, gradient, 1E10);
+                maxIterations, palette, gradient, 1E10);
+            stopWatch.Stop();
             CopyArrayToBitmap(width, height, depth, buffer, img);
             bmp.UnlockBits(img);
-            stopWatch.Stop();
             var p = new PictureBox { Size = display._bmp.Size };
             var form = new Form
             {

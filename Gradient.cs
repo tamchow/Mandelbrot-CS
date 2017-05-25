@@ -1,5 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
 
 namespace Mandelbrot
 {
@@ -11,15 +12,16 @@ namespace Mandelbrot
         /// <returns></returns>
         public bool Equals(Gradient other)
         {
-            return Math.Abs(PaletteScale - other.PaletteScale) < MathUtilities.Tolerance &&
-                   Math.Abs(Shift - other.Shift) < MathUtilities.Tolerance &&
-                   Math.Abs(Root - other.Root) < MathUtilities.Tolerance &&
-                   Math.Abs(IndexScale - other.IndexScale) < MathUtilities.Tolerance &&
-                   Math.Abs(Weight - other.Weight) < MathUtilities.Tolerance &&
-                   MinIterations == other.MinIterations &&
-                   LogIndex == other.LogIndex &&
-                   RootIndex == other.RootIndex &&
-                   UseAlternateSmoothingConstant == other.UseAlternateSmoothingConstant;
+            return PaletteBailout.Equals(other.PaletteBailout) && 
+                MaxIterationColor == other.MaxIterationColor && 
+                PaletteScale.Equals(other.PaletteScale) && 
+                Shift.Equals(other.Shift) && 
+                LogIndex == other.LogIndex &&
+                RootIndex == other.RootIndex && 
+                Root.Equals(other.Root) &&
+                MinIterations == other.MinIterations &&
+                IndexScale.Equals(other.IndexScale) &&
+                Weight.Equals(other.Weight);
         }
 
         /// <summary>
@@ -28,7 +30,8 @@ namespace Mandelbrot
         /// <returns></returns>
         public override bool Equals(object obj)
         {
-            return !ReferenceEquals(null, obj) && obj is Gradient && Equals((Gradient)obj);
+            if (ReferenceEquals(null, obj)) return false;
+            return obj is Gradient && Equals((Gradient) obj);
         }
 
         /// <summary>
@@ -36,16 +39,20 @@ namespace Mandelbrot
         /// <returns></returns>
         public override int GetHashCode()
         {
-            var hashCode = PaletteScale.GetHashCode();
-            hashCode = (hashCode * 397) ^ Shift.GetHashCode();
-            hashCode = (hashCode * 397) ^ Root.GetHashCode();
-            hashCode = (hashCode * 397) ^ IndexScale.GetHashCode();
-            hashCode = (hashCode * 397) ^ Weight.GetHashCode();
-            hashCode = (hashCode * 397) ^ MinIterations.GetHashCode();
-            hashCode = (hashCode * 397) ^ LogIndex.GetHashCode();
-            hashCode = (hashCode * 397) ^ RootIndex.GetHashCode();
-            hashCode = (hashCode * 397) ^ UseAlternateSmoothingConstant.GetHashCode();
-            return hashCode;
+            unchecked
+            {
+                var hashCode = PaletteBailout.GetHashCode();
+                hashCode = (hashCode * 397) ^ MaxIterationColor.GetHashCode();
+                hashCode = (hashCode * 397) ^ PaletteScale.GetHashCode();
+                hashCode = (hashCode * 397) ^ Shift.GetHashCode();
+                hashCode = (hashCode * 397) ^ LogIndex.GetHashCode();
+                hashCode = (hashCode * 397) ^ RootIndex.GetHashCode();
+                hashCode = (hashCode * 397) ^ Root.GetHashCode();
+                hashCode = (hashCode * 397) ^ MinIterations;
+                hashCode = (hashCode * 397) ^ IndexScale.GetHashCode();
+                hashCode = (hashCode * 397) ^ Weight.GetHashCode();
+                return hashCode;
+            }
         }
 
         /// <summary>
@@ -79,26 +86,28 @@ namespace Mandelbrot
         {
             var data = load.Split(' ');
             return new Gradient(
-                double.Parse(data[0]), double.Parse(data[1]),
-                bool.Parse(data[2]), bool.Parse(data[3]), bool.Parse(data[4]),
-                double.Parse(data[5]), int.Parse(data[6]),
-                double.Parse(data[7]), double.Parse(data[8]));
+                Color.FromArgb(int.Parse(data[10], NumberStyles.HexNumber)),
+                double.Parse(data[0]), double.Parse(data[1]), double.Parse(data[2]),
+                bool.Parse(data[3]), bool.Parse(data[4]), bool.Parse(data[5]),
+                double.Parse(data[6]), int.Parse(data[7]),
+                double.Parse(data[8]), double.Parse(data[9]));
         }
 
         /// <summary>
         /// </summary>
         /// <returns></returns>
         public override string ToString() =>
-            $"PaletteScale: {PaletteScale}, Shift: {Shift}," +
+            $"PaletteScale: {PaletteScale}, Shift: {Shift}, Palette_Bailout = {PaletteBailout}" +
             $" Log_Index: {LogIndex}, Root_Index: {RootIndex}," +
-            $" Use_Alternate_Smoothing_Constant: {UseAlternateSmoothingConstant}," +
             $" Root: {Root}, MinIterations = {MinIterations},"+
             $" Fraction_Scale: {IndexScale}, Weight = {Weight}";
 
         /// <summary>
         /// </summary>
+        /// <param name="maxIterationColor"></param>
         /// <param name="paletteScale"></param>
         /// <param name="shift"></param>
+        /// <param name="paletteBailout"></param>
         /// <param name="logIndex"></param>
         /// <param name="rootIndex"></param>
         /// <param name="useAlternateSmoothingConstant"></param>
@@ -106,16 +115,20 @@ namespace Mandelbrot
         /// <param name="minIterations"></param>
         /// <param name="indexScale"></param>
         /// <param name="weight"></param>
-        public Gradient(double paletteScale, double shift,
+        public Gradient(
+            Color maxIterationColor,
+            double paletteScale, double shift, double paletteBailout, 
             bool logIndex = false, bool rootIndex = true, bool useAlternateSmoothingConstant = false,
             double root = 2, int minIterations = 1,
-            double indexScale = 1.0, double weight = 1.0)
+            double indexScale = 1.0, double weight = 1.0
+           )
         {
+            MaxIterationColor = maxIterationColor;
             PaletteScale = paletteScale;
             Shift = shift;
+            PaletteBailout = paletteBailout;
             LogIndex = logIndex;
             RootIndex = !(Math.Abs(root - 1.0) < MathUtilities.Tolerance) && rootIndex;
-            UseAlternateSmoothingConstant = useAlternateSmoothingConstant;
             Root = root;
             Exponent = 1 / root;
             if (minIterations < 0 && !logIndex) throw new ArgumentException($"Min. iterations cutoff must be >= 0, is {minIterations}");
@@ -125,37 +138,9 @@ namespace Mandelbrot
             Weight = weight;
         }
 
-        #region GradientEqualityComparer
-
-        private sealed class GradientEqualityComparer : IEqualityComparer<Gradient>
-        {
-            public bool Equals(Gradient x, Gradient y)
-            {
-                return x.PaletteScale.Equals(y.PaletteScale) && x.Shift.Equals(y.Shift) && x.LogIndex == y.LogIndex && x.RootIndex == y.RootIndex && x.UseAlternateSmoothingConstant == y.UseAlternateSmoothingConstant && x.Root.Equals(y.Root) && x.MinIterations == y.MinIterations && x.IndexScale.Equals(y.IndexScale) && x.Weight.Equals(y.Weight);
-            }
-
-            public int GetHashCode(Gradient obj)
-            {
-                unchecked
-                {
-                    var hashCode = obj.PaletteScale.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.Shift.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.LogIndex.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.RootIndex.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.UseAlternateSmoothingConstant.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.Root.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.MinIterations;
-                    hashCode = (hashCode * 397) ^ obj.IndexScale.GetHashCode();
-                    hashCode = (hashCode * 397) ^ obj.Weight.GetHashCode();
-                    return hashCode;
-                }
-            }
-        }
-
-        public static IEqualityComparer<Gradient> GradientComparer { get; } = new GradientEqualityComparer();
-
         #region Implementation of IEquatable<Gradient>
 
+        /// <inheritdoc />
         bool IEquatable<Gradient>.Equals(Gradient other)
         {
             return Equals(other);
@@ -163,11 +148,15 @@ namespace Mandelbrot
 
         #endregion
 
-        #endregion
-
         /// <summary>
         /// </summary>
         public double Exponent { get; }
+
+        /// <summary>
+        /// </summary>
+        public double PaletteBailout { get; }
+
+        public Color MaxIterationColor { get; }
 
         /// <summary>
         /// </summary>
@@ -184,10 +173,6 @@ namespace Mandelbrot
         /// <summary>
         /// </summary>
         public bool RootIndex { get; }
-
-        /// <summary>
-        /// </summary>
-        public bool UseAlternateSmoothingConstant { get; }
 
         /// <summary>
         /// </summary>
