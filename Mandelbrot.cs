@@ -86,12 +86,10 @@ namespace Mandelbrot
             if (maxIterations < 1) throw new ArgumentException($"Max iterations must be >= 1, is {maxIterations}");
             var colors = palette.Length;
             var root = gradient.Exponent;
-            double indexScale = gradient.IndexScale, indexWeight = gradient.Weight;
-            double scaledMinIterations = indexScale * gradient.MinIterations,
-                scaledMaxIterations = indexScale * maxIterations;
-            var rootMinIterations = gradient.RootIndex ? Math.Pow(scaledMinIterations, root) : 0.0;
-            var logBase = gradient.LogIndex ? Math.Log(scaledMaxIterations / scaledMinIterations) : 0.0;
-            var logMinIterations = gradient.LogIndex ? Math.Log(scaledMinIterations, logBase) : 0.0;
+            double indexScale = gradient.IndexScale, indexWeight = gradient.Weight;  
+            var rootMinIterations = gradient.RootIndex ? Math.Pow(gradient.MinIterations, root) : 0.0;
+            var logBase = gradient.LogIndex ? Math.Log((double) maxIterations / gradient.MinIterations) : 0.0;
+            var logMinIterations = gradient.LogIndex ? Math.Log(gradient.MinIterations, logBase) : 0.0;
             var logPaletteBailout = Math.Log(gradient.PaletteBailout);
             var halfOverLogPaletteBailout = 0.5 / logPaletteBailout;
             var bailoutSquared = bailout * bailout;

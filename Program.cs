@@ -64,8 +64,7 @@ namespace Mandelbrot
                 Color.FromArgb(255, 170, 0),
                 Color.FromArgb(204, 128, 0),
                 Color.FromArgb(153, 87, 0),
-                Color.FromArgb(106, 52, 3),
-                Color.FromArgb(0, 0, 0)
+                Color.FromArgb(106, 52, 3)
             };
             /*
              * Note that the way scaleDownFactor is calculated will ensure that 
@@ -86,7 +85,7 @@ namespace Mandelbrot
                 }
                 if (args.Length > 3)
                 {
-                   int.TryParse(args[3], out numColors);
+                    int.TryParse(args[3], out numColors);
                 }
             }
 
@@ -97,15 +96,13 @@ namespace Mandelbrot
                 0, 1E10,
                 logIndex: true, rootIndex: false,
                 root: root, minIterations: 1,
-                indexScale: 1,  weight: 1.0);
-            using (var paletteOutput = new StreamWriter("./palette.txt"))
-            {
-                var totalPalette = new Color[palette.Length + 1];
-                totalPalette[0] = maxIterationColor;
-                palette.CopyTo(totalPalette, 1);
-                paletteOutput.WriteLine(numColors);
-                paletteOutput.Write(Palette.PaletteToString(totalPalette));
-            }
+                indexScale: 100, weight: 1.0);
+
+            var totalPalette = new Color[palette.Length + 1];
+            totalPalette[0] = maxIterationColor;
+            palette.CopyTo(totalPalette, 1);
+            Palette.SavePaletteAsMspal("./palette.pal", totalPalette);
+
             var display = new Display
             {
                 _bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb)
@@ -113,13 +110,14 @@ namespace Mandelbrot
             var bmp = (Bitmap)display._bmp;
             var img = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, display._bmp.PixelFormat);
             var depth = Image.GetPixelFormatSize(img.PixelFormat) / 8; //bytes per pixel
+            var region = new Region(new Complex(-0.7473121377766069, 0.16276796298735544), new Complex(0.5, 0.5), originAndWidth: true);
             //var region = new Region(new Complex(-0.1593247826659642, 1.0342115878556377), new Complex(0.0325, 0.0325), originAndWidth: true);
             //var region = new Region(new Complex(0.27969303810093984, 0.00838423653868096), new Complex(3.27681E-12, 3.27681E-12), originAndWidth: true);
-            var region = new Region(new Complex(-2.5, -1), new Complex(1, 1), originAndWidth: false);
+            //var region = new Region(new Complex(-2.5, -1), new Complex(1, 1), originAndWidth: false);
             stopWatch.Start();
             var buffer =
                 Mandelbrot.DrawMandelbrot(
-                    new Size(1, 1),
+                    new Size(1, Environment.ProcessorCount),
                 new Size(width, height),
                 region,
                 maxIterations, palette, gradient, 1E10);

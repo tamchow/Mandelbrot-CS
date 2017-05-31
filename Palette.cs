@@ -1,11 +1,41 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
 using System.Text;
 
 namespace Mandelbrot
 {
     public static class Palette
     {
+        public static void SavePaletteAsMspal(string filename, Color[] colors)
+        {
+            // Calculate file length
+            var length = 4 + 4 + 4 + 4 + 2 + 2 + colors.Length * 4;
+
+            var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.None);
+            using (var bw = new BinaryWriter(stream, Encoding.ASCII))
+            {
+                // RIFF header
+                bw.Write(Encoding.ASCII.GetBytes("RIFF"));
+                bw.Write(length - 4);
+                bw.Write(Encoding.ASCII.GetBytes("PAL "));
+
+                // Data chunk
+                bw.Write(Encoding.ASCII.GetBytes("data"));
+                bw.Write(colors.Length * 4 + 4);
+                bw.Write((ushort)0x0300); // PAL version
+                bw.Write((ushort)colors.Length);
+
+                // Colors
+                foreach (var color in colors)
+                {
+                    bw.Write((byte)color.R);
+                    bw.Write((byte)color.G);
+                    bw.Write((byte)color.B);
+                    bw.Write((byte)0x00); // Flags are always 0x00
+                }
+            }
+        }
 
         public static string PaletteToString(Color[] palette)
         {
@@ -113,10 +143,10 @@ namespace Mandelbrot
         public static void Lerp(Color from, Color to, double bias, out byte red, out byte green, out byte blue)
         {
             bias = double.IsNaN(bias) ? 0 : (double.IsInfinity(bias) ? 1 : bias);
-            byte toRed = to.R, toGreen = to.G, toBlue = to.B;
-            red = (byte)(toRed + (from.R - toRed) * bias);
-            green = (byte)(toGreen + (from.G - toGreen) * bias);
-            blue = (byte)(toBlue + (from.B - toBlue) * bias);
+            byte fromRed = from.R, fromGreen = from.G, fromBlue = from.B;
+            red = (byte)(fromRed + (to.R - fromRed) * bias);
+            green = (byte)(fromGreen + (to.G - fromGreen) * bias);
+            blue = (byte)(fromBlue + (to.B - fromBlue) * bias);
         }
     }
 }
