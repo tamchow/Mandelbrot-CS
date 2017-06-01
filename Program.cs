@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -47,7 +47,6 @@ namespace Mandelbrot
                 new Tuple<double, Color>(1.0, Color.FromArgb(255, 0, 7, 100))
             };
             int width = 3840, height = 2160, numColors = 768, maxIterations = 256;
-            var palette = Palette.GenerateColorPalette(initialPalette, numColors);
             var palette2 = new[]{
                 Color.FromArgb(66, 30, 15),
                 Color.FromArgb(25, 37, 26),
@@ -66,6 +65,16 @@ namespace Mandelbrot
                 Color.FromArgb(153, 87, 0),
                 Color.FromArgb(106, 52, 3)
             };
+            var paletteParameterIndex = args.ToList().FindIndex(x => x.Contains("-p") || x.Contains("--palette"));
+            if (paletteParameterIndex >= 0)
+            {
+                var paletteData = Palette.LoadPaletteConfiguration(args[paletteParameterIndex + 1]);
+                Console.WriteLine($@"Palette successfully loaded from {args[paletteParameterIndex + 1]}");
+                numColors = paletteData.Item1;
+                initialPalette = paletteData.Item2;
+            }
+            var palette = Palette.GenerateColorPalette(initialPalette, numColors);
+            Console.WriteLine($@"Palette has {numColors} colors");
             /*
              * Note that the way scaleDownFactor is calculated will ensure that 
              * `gradient.PaletteScale` is such that the highest ieration counts will map to Black.
@@ -75,17 +84,17 @@ namespace Mandelbrot
              */
             var scaleDownFactor = Palette.CalculateScaleDownFactorForLinearMapping(Palette.FindPaletteColorLocation(palette, Color.Black));
             var root = 4.0;
-            if (args.Length > 0)
+            if (args.Length > paletteParameterIndex + 2)
             {
-                int.TryParse(args[0], out width);
-                int.TryParse(args[1], out height);
-                if (args.Length > 2)
+                int.TryParse(args[paletteParameterIndex + 2], out width);
+                int.TryParse(args[paletteParameterIndex + 3], out height);
+                if (args.Length > paletteParameterIndex + 3)
                 {
-                    int.TryParse(args[2], out maxIterations);
+                    int.TryParse(args[paletteParameterIndex + 4], out maxIterations);
                 }
-                if (args.Length > 3)
+                if (args.Length > paletteParameterIndex + 4)
                 {
-                    int.TryParse(args[3], out numColors);
+                    int.TryParse(args[paletteParameterIndex + 4], out numColors);
                 }
             }
 
@@ -110,10 +119,10 @@ namespace Mandelbrot
             var bmp = (Bitmap)display._bmp;
             var img = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, display._bmp.PixelFormat);
             var depth = Image.GetPixelFormatSize(img.PixelFormat) / 8; //bytes per pixel
-            var region = new Region(new Complex(-0.7473121377766069, 0.16276796298735544), new Complex(0.5, 0.5), originAndWidth: true);
+            //var region = new Region(new Complex(-0.7473121377766069, 0.16276796298735544), new Complex(0.5, 0.5), originAndWidth: true);
             //var region = new Region(new Complex(-0.1593247826659642, 1.0342115878556377), new Complex(0.0325, 0.0325), originAndWidth: true);
             //var region = new Region(new Complex(0.27969303810093984, 0.00838423653868096), new Complex(3.27681E-12, 3.27681E-12), originAndWidth: true);
-            //var region = new Region(new Complex(-2.5, -1), new Complex(1, 1), originAndWidth: false);
+            var region = new Region(new Complex(-2.5, -1), new Complex(1, 1), originAndWidth: false);
             stopWatch.Start();
             var buffer =
                 Mandelbrot.DrawMandelbrot(

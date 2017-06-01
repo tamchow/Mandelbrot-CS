@@ -1,12 +1,60 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Mandelbrot
 {
     public static class Palette
     {
+        public static Tuple<int, Tuple<double, Color>[]> LoadPaletteConfiguration(string fileName)
+        {
+            using (var reader = new StreamReader(fileName))
+            {
+                if (reader.Peek() > 0 && int.TryParse(reader.ReadLine(), out var numColors))
+                {
+                    if (numColors <= 0)
+                    {
+                        throw new ArgumentException($"Cannot have a palette with number of colors less than 0 - got {numColors}");
+                    }
+                    var initialColors = new List<Tuple<double, Color>>(numColors);
+                    for (uint i = 0; i < numColors; ++i)
+                    {
+                        var lineParts = reader.ReadLine()?.Split(new []{":", ": "}, StringSplitOptions.RemoveEmptyEntries);
+                        if (lineParts == null)
+                        {
+                            break;
+                        }
+                        if (lineParts.Length >= 2)
+                        {
+                            if (double.TryParse(lineParts[0], out double position))
+                            {
+                                var colorComponents = lineParts[1].Split(new[] { ",", ", " }, StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+                                if (colorComponents.Length < 3)
+                                {
+                                    throw new ArgumentException(
+                                        $"Color one line {(i + 2)} has less than three components");
+                                }
+                                var color = Color.FromArgb(colorComponents[0], colorComponents[1], colorComponents[2]);
+                                initialColors.Add(new Tuple<double, Color>(position, color));
+                            }
+                            else
+                            {
+                                throw new ArgumentException($"Could not read position of color on line {(i + 2)}");
+                            }
+                        }
+                        else
+                        {
+                            throw new ArgumentException($"Color specification is invalid on line {(i + 2)}");
+                        }
+                    }
+                    return new Tuple<int, Tuple<double, Color>[]>(numColors, initialColors.ToArray());
+                }
+                throw new ArgumentException("File is corrupt or number of colors not specified");
+            }
+        }
         public static void SavePaletteAsMspal(string filename, Color[] colors)
         {
             // Calculate file length
@@ -40,7 +88,7 @@ namespace Mandelbrot
         public static string PaletteToString(Color[] palette)
         {
             var accumulator = new StringBuilder(palette.Length * 12); // 3 digits for 3 color components, separated by ',', terminated by '\n'
-            foreach(var color in palette)
+            foreach (var color in palette)
             {
                 accumulator.Append(color.R).Append(',').Append(color.G).Append(',').Append(color.B).Append('\n');
             }
@@ -101,7 +149,7 @@ namespace Mandelbrot
             return palette;
         }
 
-       #region Routines for ensuring the highest iteration counts map to a specific color
+        #region Routines for ensuring the highest iteration counts map to a specific color
         private static double EuclideanDistance(Color a, Color b)
         {
             double dR = a.R - b.R, dG = a.G - b.G, dB = a.B - b.B;
