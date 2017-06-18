@@ -35,22 +35,22 @@ namespace Mandelbrot
                                 if (colorComponents.Length < 3)
                                 {
                                     throw new ArgumentException(
-                                        $"Color one line {(i + 2)} has less than three components");
+                                        $"Color one line {i + 2} has less than three components");
                                 }
                                 var color = Color.FromArgb(colorComponents[0], colorComponents[1], colorComponents[2]);
-                                initialColors.Add(new Tuple<double, Color>(position, color));
+                                initialColors.Add(Tuple.Create(position, color));
                             }
                             else
                             {
-                                throw new ArgumentException($"Could not read position of color on line {(i + 2)}");
+                                throw new ArgumentException($"Could not read position of color on line {i + 2}");
                             }
                         }
                         else
                         {
-                            throw new ArgumentException($"Color specification is invalid on line {(i + 2)}");
+                            throw new ArgumentException($"Color specification is invalid on line {i + 2}");
                         }
                     }
-                    return new Tuple<int, Tuple<double, Color>[]>(numColors, initialColors.ToArray());
+                    return Tuple.Create(numColors, initialColors.ToArray());
                 }
                 throw new ArgumentException("File is corrupt or number of colors not specified");
             }

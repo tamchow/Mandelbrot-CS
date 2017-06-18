@@ -27,7 +27,7 @@ namespace Mandelbrot
             var scale = Scale(width, height, rMin, rMax, iMin, iMax);
             var startPixelCoordinates = ArgandToPixelCoordinates(region.Min, scale.Real, scale.Imaginary, rMin, iMin);
             var endPixelCoordinates = ArgandToPixelCoordinates(region.Max, scale.Real, scale.Imaginary, rMin, iMin);
-            return new Tuple<int, int, int, int>(
+            return Tuple.Create(
                 startPixelCoordinates.Item1, endPixelCoordinates.Item1,
                 startPixelCoordinates.Item2, endPixelCoordinates.Item2);
         }
@@ -89,7 +89,7 @@ namespace Mandelbrot
                 startY += iy * yDist;
                 endY = (iy + 1) * yDist;
             }
-            return new Tuple<int, int, int, int>(startX, endX, startY, endY);
+            return Tuple.Create(startX, endX, startY, endY);
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace Mandelbrot
         /// <param name="iMin"></param>
         /// <returns>(x,y)</returns>
         public static Tuple<int, int> ArgandToPixelCoordinates(Complex argand, double rScale, double iScale, double rMin, double iMin) =>
-            new Tuple<int, int>(
+            Tuple.Create(
                 (int)((argand.Real - rMin) / rScale),
                 (int)((argand.Imaginary - iMin) / iScale));
 
@@ -311,7 +311,7 @@ namespace Mandelbrot
         {
             Complex max = region.Max, min = region.Min;
             double rMin = min.Real, rMax = max.Real, iMax = max.Imaginary, iMin = min.Imaginary;
-            return new Tuple<double, double, double, double>(rMin, rMax, iMin, iMax);
+            return Tuple.Create(rMin, rMax, iMin, iMax);
         }
 
         /// <summary>

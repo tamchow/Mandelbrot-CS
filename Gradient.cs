@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Drawing;
-using System.Globalization;
+using System.Drawing;        
 
 namespace Mandelbrot
 {
@@ -86,7 +85,7 @@ namespace Mandelbrot
         {
             var data = load.Split(' ');
             return new Gradient(
-                Color.FromArgb(int.Parse(data[10], NumberStyles.HexNumber)),
+                Color.FromArgb(int.Parse(data[10], System.Globalization.NumberStyles.HexNumber)),
                 double.Parse(data[0]), double.Parse(data[1]), double.Parse(data[2]),
                 bool.Parse(data[3]), bool.Parse(data[4]), bool.Parse(data[5]),
                 double.Parse(data[6]), int.Parse(data[7]),

@@ -27,7 +27,7 @@ namespace Mandelbrot
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="count" /> is less than 0.-or-<paramref name="start" /> + <paramref name="count" /> -1 is larger than <see cref="F:System.Int32.MaxValue" />.</exception>
         /// <exception cref="AggregateException">At least one of the <see cref="T:System.Threading.Tasks.Task" /> instances was canceled. If a task was canceled, the <see cref="T:System.AggregateException" /> exception contains an <see cref="T:System.OperationCanceledException" /> exception in its <see cref="P:System.AggregateException.InnerExceptions" /> collection.-or-An exception was thrown during the execution of at least one of the <see cref="T:System.Threading.Tasks.Task" /> instances. </exception>
         /// <exception cref="IndexOutOfRangeException"><paramref name="dimension" /> is less than zero.-or-<paramref name="dimension" /> is equal to or greater than <see cref="P:System.Array.Rank" />.</exception>
-        [STAThread]
+        [STAThread]                                           
         public static void Main(string[] args)
         {
             var stopWatch = new Stopwatch();
@@ -39,33 +39,16 @@ namespace Mandelbrot
              */
             var initialPalette = new[]
             {
-                new Tuple<double, Color>(0.0, Color.FromArgb(255, 0, 7, 100)),
-                new Tuple<double, Color>(0.16, Color.FromArgb(255, 32, 107, 203)),
-                new Tuple<double, Color>(0.42, Color.FromArgb(255, 237, 255, 255)),
-                new Tuple<double, Color>(0.6425, Color.FromArgb(255, 255, 170, 0)),
-                new Tuple<double, Color>(0.8575,  Color.FromArgb(255, 0, 2, 0)),
-                new Tuple<double, Color>(1.0, Color.FromArgb(255, 0, 7, 100))
+                Tuple.Create(0.0, Color.FromArgb(255, 0, 7, 100)),
+                Tuple.Create(0.16, Color.FromArgb(255, 32, 107, 203)),
+                Tuple.Create(0.42, Color.FromArgb(255, 237, 255, 255)),
+                Tuple.Create(0.6425, Color.FromArgb(255, 255, 170, 0)),
+                Tuple.Create(0.8575,  Color.FromArgb(255, 0, 2, 0)),
+                Tuple.Create(1.0, Color.FromArgb(255, 0, 7, 100))
             };
             int width = 3840, height = 2160, numColors = 768, maxIterations = 256;
-            var palette2 = new[]{
-                Color.FromArgb(66, 30, 15),
-                Color.FromArgb(25, 37, 26),
-                Color.FromArgb(9, 1, 47),
-                Color.FromArgb(4, 4, 73),
-                Color.FromArgb(0, 7, 100),
-                Color.FromArgb(12, 44, 138),
-                Color.FromArgb(24, 82, 177),
-                Color.FromArgb(57, 125, 209),
-                Color.FromArgb(134, 181, 229),
-                Color.FromArgb(211, 236, 248),
-                Color.FromArgb(241, 233, 191),
-                Color.FromArgb(248, 201, 95),
-                Color.FromArgb(255, 170, 0),
-                Color.FromArgb(204, 128, 0),
-                Color.FromArgb(153, 87, 0),
-                Color.FromArgb(106, 52, 3)
-            };
-            var paletteParameterIndex = args.ToList().FindIndex(x => x.Contains("-p") || x.Contains("--palette"));
+            var argsList = args.ToList();
+            var paletteParameterIndex = argsList.FindIndex(x => x.Contains("-p") || x.Contains("--palette"));
             if (paletteParameterIndex >= 0)
             {
                 var paletteData = Palette.LoadPaletteConfiguration(args[paletteParameterIndex + 1]);
@@ -80,21 +63,31 @@ namespace Mandelbrot
              * `gradient.PaletteScale` is such that the highest ieration counts will map to Black.
              * 
              * To change the frequency of colors in the output,
-             * change `gradient.IndexScale` in proportion to the frquency, as necessary.
+             * change `gradient.IndexScale` in proportion to the frequency, as necessary.
              */
             var scaleDownFactor = Palette.CalculateScaleDownFactorForLinearMapping(Palette.FindPaletteColorLocation(palette, Color.Black));
             var root = 4.0;
-            if (args.Length > paletteParameterIndex + 2)
+            var dimensionParameterIndex = argsList.FindIndex(x => x.Contains("-s") || x.Contains("--size"));
+            if (dimensionParameterIndex >= 0)
             {
-                int.TryParse(args[paletteParameterIndex + 2], out width);
-                int.TryParse(args[paletteParameterIndex + 3], out height);
-                if (args.Length > paletteParameterIndex + 3)
+                var sizeData = args[dimensionParameterIndex + 1].Split(',');  
+                if (int.TryParse(sizeData[0], out width))
                 {
-                    int.TryParse(args[paletteParameterIndex + 4], out maxIterations);
+                    Console.WriteLine($"Width = {width}");
                 }
-                if (args.Length > paletteParameterIndex + 4)
+                if (int.TryParse(sizeData[1], out height))
                 {
-                    int.TryParse(args[paletteParameterIndex + 4], out numColors);
+                    Console.WriteLine($"Height = {height}");
+                }
+            }
+
+            var iterationParameterIndex = argsList.FindIndex(x => x.Contains("-i") || x.Contains("--iterations"));
+            if (iterationParameterIndex >= 0)
+            {
+
+                if (int.TryParse(args[iterationParameterIndex + 1], out maxIterations))
+                {
+                    Console.WriteLine($"Max Iterations = {maxIterations}");
                 }
             }
 
