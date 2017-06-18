@@ -7,6 +7,14 @@ The API spports zooming and panning, but the application itself doesn't expose t
 1. <kbd>ESC</kbd> - Closes the display window.
 2. <kbd>S</kbd> - Saves the image displayed in the invocation directory as `Image.png`.
 
+##Command-line Switches:
+1. `-s` or `--size` followed by `<width>,<height>` as a regex matching `$(\d+),(\d+)^`.
+2. `-i` or `--iterations` followed by `<max iteration count>` as a regex matching `$(\d+)^`.
+3. `-p` or `--palette` followed by a path to a text file specifying a palette configuration as a text file - see `paletteConfiguration.txt` in the root directory of the `master` branch for details on the format.
+
+__Defaults__
+`-s 3840,2160 -i 256`
+
 ##Running:
 Easy as pie to run. Download the `.exe` from the [Releases](https://github.com/tamchow/Mandelbrot-CS/releases) page and double click. Enjoy the Mandelbrot!
 
